@@ -453,7 +453,7 @@ class _StudyHomeState extends State<StudyHome> with WidgetsBindingObserver {
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text('StudyBud'),
+                      const Text('SuuStudy'),
                       Text(
                         _syncStatusText,
                         style: Theme.of(context).textTheme.labelSmall,
@@ -630,7 +630,7 @@ class _AuthScreenState extends State<AuthScreen> {
               const Icon(Icons.favorite, size: 68, color: Color(0xFFFF8FB3)),
               const SizedBox(height: 12),
               Text(
-                _signUp ? 'Join StudyBud' : 'Welcome back',
+                _signUp ? 'Join SuuStudy' : 'Welcome back',
                 textAlign: TextAlign.center,
                 style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                   fontWeight: FontWeight.w800,
@@ -765,10 +765,9 @@ class _TaskListCardState extends State<TaskListCard> {
                 padding: const EdgeInsets.only(bottom: 8),
                 child: Material(
                   color: widget.activeTaskId == task.id
-                      ? task.color.withOpacity(0.18)
-                      : Theme.of(
-                          context,
-                        ).colorScheme.surfaceContainerHighest.withOpacity(0.45),
+                      ? task.color.withValues(alpha: 0.18)
+                      : Theme.of(context).colorScheme.surfaceContainerHighest
+                            .withValues(alpha: 0.45),
                   borderRadius: BorderRadius.circular(8),
                   child: ListTile(
                     shape: RoundedRectangleBorder(
@@ -844,7 +843,7 @@ class TimerCard extends StatelessWidget {
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(8),
           gradient: LinearGradient(
-            colors: [color.withOpacity(0.16), Colors.transparent],
+            colors: [color.withValues(alpha: 0.16), Colors.transparent],
           ),
         ),
         child: Column(
@@ -962,7 +961,7 @@ class FocusTimerScreen extends StatelessWidget {
                 children: [
                   if (task != null)
                     Chip(
-                      backgroundColor: Colors.white.withOpacity(0.08),
+                      backgroundColor: Colors.white.withValues(alpha: 0.08),
                       avatar: CircleAvatar(backgroundColor: task!.color),
                       label: Text(
                         task!.name,
@@ -1113,7 +1112,8 @@ class StatsSection extends StatefulWidget {
 }
 
 class _StatsSectionState extends State<StatsSection> {
-  String _subjectRange = 'week';
+  String _range = 'weekly';
+  String _pieRange = 'week';
 
   @override
   Widget build(BuildContext context) {
@@ -1126,11 +1126,8 @@ class _StatsSectionState extends State<StatsSection> {
     final weekSeconds = widget.sessions
         .where((s) => week.contains(s.date))
         .fold(0, (sum, s) => sum + s.duration);
-    final pie = pieData(widget.sessions, widget.tasks, _subjectRange, now);
-    final totalSubjectSeconds = pie.fold<int>(
-      0,
-      (sum, item) => sum + item.seconds,
-    );
+    final chart = chartData(widget.sessions, _range, now);
+    final pie = pieData(widget.sessions, widget.tasks, _pieRange, now);
     return Column(
       children: [
         Row(
@@ -1153,149 +1150,100 @@ class _StatsSectionState extends State<StatsSection> {
           ],
         ),
         const SizedBox(height: 16),
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Time per Subject',
-                  style: Theme.of(context).textTheme.titleLarge,
-                ),
-                const SizedBox(height: 10),
-                SegmentedButton<String>(
-                  segments: const [
-                    ButtonSegment(value: 'today', label: Text('Today')),
-                    ButtonSegment(value: 'week', label: Text('Week')),
-                    ButtonSegment(value: 'month', label: Text('Month')),
-                  ],
-                  selected: {_subjectRange},
-                  onSelectionChanged: (value) =>
-                      setState(() => _subjectRange = value.first),
-                ),
-                const SizedBox(height: 14),
-                if (pie.isEmpty)
-                  const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 48),
-                    child: Center(child: Text('No sessions recorded yet.')),
-                  )
-                else
-                  LayoutBuilder(
-                    builder: (context, constraints) {
-                      final compact = constraints.maxWidth < 640;
-                      final chart = SizedBox(
-                        width: compact ? 180 : 220,
-                        height: compact ? 180 : 220,
-                        child: Stack(
-                          alignment: Alignment.center,
-                          children: [
-                            PieChart(
-                              data: pie,
-                              holeColor: Theme.of(
-                                context,
-                              ).colorScheme.surface,
-                            ),
-                            Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Text(
-                                  'Total',
-                                  style: Theme.of(context).textTheme.labelSmall,
-                                ),
-                                Text(
-                                  formatDuration(totalSubjectSeconds),
-                                  textAlign: TextAlign.center,
-                                  style: Theme.of(context).textTheme.titleMedium
-                                      ?.copyWith(fontWeight: FontWeight.w800),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      );
-                      final details = Column(
-                        children: [
-                          for (final item in pie)
-                            Padding(
-                              padding: const EdgeInsets.only(bottom: 12),
-                              child: SubjectTimeRow(item: item),
-                            ),
-                        ],
-                      );
-                      if (compact) {
-                        return Column(
-                          children: [
-                            chart,
-                            const SizedBox(height: 18),
-                            details,
-                          ],
-                        );
-                      }
-                      return Row(
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        children: [
-                          chart,
-                          const SizedBox(width: 28),
-                          Expanded(child: details),
-                        ],
-                      );
-                    },
+        SizedBox(
+          width: double.infinity,
+          child: Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Study Progress',
+                    style: Theme.of(context).textTheme.titleLarge,
                   ),
-              ],
+                  const SizedBox(height: 10),
+                  SegmentedButton<String>(
+                    segments: const [
+                      ButtonSegment(value: 'daily', label: Text('daily')),
+                      ButtonSegment(value: 'weekly', label: Text('weekly')),
+                      ButtonSegment(value: 'monthly', label: Text('monthly')),
+                    ],
+                    selected: {_range},
+                    onSelectionChanged: (value) =>
+                        setState(() => _range = value.first),
+                  ),
+                  const SizedBox(height: 14),
+                  SizedBox(height: 220, child: BarChart(data: chart)),
+                ],
+              ),
             ),
           ),
         ),
-      ],
-    );
-  }
-}
-
-class SubjectTimeRow extends StatelessWidget {
-  const SubjectTimeRow({required this.item, super.key});
-
-  final PiePoint item;
-
-  @override
-  Widget build(BuildContext context) {
-    final textTheme = Theme.of(context).textTheme;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            CircleAvatar(radius: 6, backgroundColor: item.color),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Text(
-                item.name,
-                overflow: TextOverflow.ellipsis,
-                style: textTheme.bodyMedium?.copyWith(
-                  fontWeight: FontWeight.w700,
-                ),
+        const SizedBox(height: 16),
+        SizedBox(
+          width: double.infinity,
+          child: Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Time per Subject',
+                    style: Theme.of(context).textTheme.titleLarge,
+                  ),
+                  const SizedBox(height: 10),
+                  SegmentedButton<String>(
+                    segments: const [
+                      ButtonSegment(value: 'today', label: Text('Today')),
+                      ButtonSegment(value: 'week', label: Text('Week')),
+                      ButtonSegment(value: 'all', label: Text('All')),
+                    ],
+                    selected: {_pieRange},
+                    onSelectionChanged: (value) =>
+                        setState(() => _pieRange = value.first),
+                  ),
+                  const SizedBox(height: 14),
+                  if (pie.isEmpty)
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 48),
+                      child: Center(child: Text('No sessions recorded yet.')),
+                    )
+                  else
+                    Wrap(
+                      spacing: 24,
+                      runSpacing: 16,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        SizedBox(
+                          width: 220,
+                          height: 220,
+                          child: PieChart(data: pie),
+                        ),
+                        SizedBox(
+                          width: 260,
+                          child: Column(
+                            children: [
+                              for (final item in pie)
+                                ListTile(
+                                  dense: true,
+                                  leading: CircleAvatar(
+                                    radius: 8,
+                                    backgroundColor: item.color,
+                                  ),
+                                  title: Text(item.name),
+                                  subtitle: Text(formatDuration(item.seconds)),
+                                  trailing: Text('${item.percent}%'),
+                                ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                ],
               ),
             ),
-            const SizedBox(width: 10),
-            Text(formatDuration(item.seconds), style: textTheme.bodyMedium),
-            const SizedBox(width: 10),
-            SizedBox(
-              width: 42,
-              child: Text(
-                '${item.percent}%',
-                textAlign: TextAlign.end,
-                style: textTheme.labelMedium,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        ClipRRect(
-          borderRadius: BorderRadius.circular(99),
-          child: LinearProgressIndicator(
-            value: item.percent / 100,
-            minHeight: 8,
-            backgroundColor: item.color.withOpacity(0.16),
-            valueColor: AlwaysStoppedAnimation<Color>(item.color),
           ),
         ),
       ],
@@ -1355,14 +1303,13 @@ class BarChart extends StatelessWidget {
 }
 
 class PieChart extends StatelessWidget {
-  const PieChart({required this.data, required this.holeColor, super.key});
+  const PieChart({required this.data, super.key});
 
   final List<PiePoint> data;
-  final Color holeColor;
 
   @override
   Widget build(BuildContext context) =>
-      CustomPaint(painter: PieChartPainter(data, holeColor));
+      CustomPaint(painter: PieChartPainter(data));
 }
 
 class GlowPainter extends CustomPainter {
@@ -1374,7 +1321,7 @@ class GlowPainter extends CustomPainter {
     final paint = Paint()
       ..shader =
           RadialGradient(
-            colors: [color.withOpacity(0.5), Colors.transparent],
+            colors: [color.withValues(alpha: 0.5), Colors.transparent],
           ).createShader(
             Rect.fromCircle(
               center: Offset(size.width / 2, size.height * 0.4),
@@ -1397,7 +1344,10 @@ class BarChartPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final axis = Paint()
-      ..color = Colors.grey.withOpacity(0.35)
+      ..color = Colors.grey.withValues(alpha: 0.35)
+      ..strokeWidth = 1;
+    final grid = Paint()
+      ..color = Colors.grey.withValues(alpha: 0.16)
       ..strokeWidth = 1;
     final bar = Paint()..color = color;
     final text = TextPainter(textDirection: TextDirection.ltr);
@@ -1405,7 +1355,19 @@ class BarChartPainter extends CustomPainter {
       1,
       data.fold<int>(0, (max, point) => math.max(max, point.minutes)),
     );
-    final graph = Rect.fromLTWH(28, 8, size.width - 36, size.height - 40);
+    final topValue = _niceChartMax(maxValue);
+    final graph = Rect.fromLTWH(42, 18, size.width - 50, size.height - 48);
+    for (var i = 0; i <= 4; i += 1) {
+      final value = (topValue * i / 4).round();
+      final y = graph.bottom - graph.height * (value / topValue);
+      canvas.drawLine(Offset(graph.left, y), Offset(graph.right, y), grid);
+      text.text = TextSpan(
+        text: _shortMinutes(value),
+        style: const TextStyle(fontSize: 10, color: Colors.grey),
+      );
+      text.layout(maxWidth: graph.left - 6);
+      text.paint(canvas, Offset(graph.left - text.width - 6, y - 6));
+    }
     canvas.drawLine(
       Offset(graph.left, graph.bottom),
       Offset(graph.right, graph.bottom),
@@ -1414,7 +1376,7 @@ class BarChartPainter extends CustomPainter {
     final width = graph.width / math.max(1, data.length);
     for (var i = 0; i < data.length; i += 1) {
       final point = data[i];
-      final height = graph.height * (point.minutes / maxValue);
+      final height = graph.height * (point.minutes / topValue);
       final rect = RRect.fromRectAndRadius(
         Rect.fromLTWH(
           graph.left + i * width + width * 0.18,
@@ -1425,10 +1387,24 @@ class BarChartPainter extends CustomPainter {
         const Radius.circular(6),
       );
       canvas.drawRRect(rect, bar);
-      if (data.length <= 12 || i % 4 == 0) {
+      if (point.minutes > 0) {
+        text.text = TextSpan(
+          text: _shortMinutes(point.minutes),
+          style: const TextStyle(fontSize: 9, color: Colors.grey),
+        );
+        text.layout(maxWidth: width * 1.4);
+        final valueX = graph.left + i * width + (width - text.width) / 2;
+        final valueY = math.max(0.0, graph.bottom - height - 14);
+        text.paint(canvas, Offset(valueX, valueY));
+      }
+      final showLabel = data.length <= 31 || i % 4 == 0;
+      if (showLabel) {
         text.text = TextSpan(
           text: point.label,
-          style: const TextStyle(fontSize: 10, color: Colors.grey),
+          style: TextStyle(
+            fontSize: data.length > 24 ? 8 : 10,
+            color: Colors.grey,
+          ),
         );
         text.layout(maxWidth: width);
         text.paint(canvas, Offset(graph.left + i * width, graph.bottom + 8));
@@ -1441,10 +1417,26 @@ class BarChartPainter extends CustomPainter {
       oldDelegate.data != data || oldDelegate.color != color;
 }
 
+int _niceChartMax(int value) {
+  if (value <= 10) return 10;
+  if (value <= 30) return 30;
+  if (value <= 60) return 60;
+  if (value <= 120) return 120;
+  if (value <= 240) return 240;
+  return ((value / 60).ceil()) * 60;
+}
+
+String _shortMinutes(int minutes) {
+  if (minutes < 60) return '${minutes}m';
+  final hours = minutes ~/ 60;
+  final extraMinutes = minutes % 60;
+  if (extraMinutes == 0) return '${hours}h';
+  return '${hours}h ${extraMinutes}m';
+}
+
 class PieChartPainter extends CustomPainter {
-  PieChartPainter(this.data, this.holeColor);
+  PieChartPainter(this.data);
   final List<PiePoint> data;
-  final Color holeColor;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -1463,13 +1455,13 @@ class PieChartPainter extends CustomPainter {
     canvas.drawCircle(
       rect.center,
       size.shortestSide * 0.24,
-      Paint()..color = holeColor,
+      Paint()..color = Colors.white.withValues(alpha: 0.92),
     );
   }
 
   @override
   bool shouldRepaint(covariant PieChartPainter oldDelegate) =>
-      oldDelegate.data != data || oldDelegate.holeColor != holeColor;
+      oldDelegate.data != data;
 }
 
 class StudyRepository {
@@ -1801,8 +1793,9 @@ class AppState {
   }
 
   AppState addSessionFromTimer(String taskId, StudyTimerState timer) {
-    if (!timer.isRunning || timer.isPaused || timer.startTime == null)
+    if (!timer.isRunning || timer.isPaused || timer.startTime == null) {
       return this;
+    }
     final end = DateTime.now();
     if (!end.isAfter(timer.startTime!)) return this;
     return addSessionRange(taskId, timer.startTime!, end);
@@ -1848,14 +1841,16 @@ class AppState {
     final taskMap = {for (final task in tasks) task.id: task};
     for (final task in remote.tasks) {
       final local = taskMap[task.id];
-      if (local == null || task.updatedAt.isAfter(local.updatedAt))
+      if (local == null || task.updatedAt.isAfter(local.updatedAt)) {
         taskMap[task.id] = task;
+      }
     }
     final sessionMap = {for (final session in sessions) session.id: session};
     for (final session in remote.sessions) {
       final local = sessionMap[session.id];
-      if (local == null || session.updatedAt.isAfter(local.updatedAt))
+      if (local == null || session.updatedAt.isAfter(local.updatedAt)) {
         sessionMap[session.id] = session;
+      }
     }
     final chosenTimer = remote.timer.updatedAt.isAfter(timer.updatedAt)
         ? remote.timer
@@ -2201,13 +2196,17 @@ List<ChartPoint> chartData(
     });
   }
   if (range == 'monthly') {
-    return List.generate(30, (index) {
-      final date = now.subtract(Duration(days: 29 - index));
-      final key = dateKey(date);
-      final total = sessions
-          .where((s) => s.date == key)
-          .fold(0, (sum, s) => sum + s.duration);
-      return ChartPoint('${date.day}', (total / 60).round());
+    final daysInMonth = DateTime(now.year, now.month + 1, 0).day;
+    return List.generate(31, (index) {
+      final day = index + 1;
+      final total = day > daysInMonth
+          ? 0
+          : sessions
+                .where(
+                  (s) => s.date == dateKey(DateTime(now.year, now.month, day)),
+                )
+                .fold(0, (sum, s) => sum + s.duration);
+      return ChartPoint('$day', (total / 60).round());
     });
   }
   final week = mondayWeek(now);
@@ -2227,13 +2226,10 @@ List<PiePoint> pieData(
   DateTime now,
 ) {
   final week = mondayWeek(now);
-  final monthPrefix =
-      '${now.year.toString().padLeft(4, '0')}-${now.month.toString().padLeft(2, '0')}-';
   final filtered = sessions.where((session) {
     if (range == 'today') return session.date == dateKey(now);
     if (range == 'week') return week.contains(session.date);
-    if (range == 'month') return session.date.startsWith(monthPrefix);
-    return false;
+    return true;
   }).toList();
   final totals = <String, int>{};
   for (final session in filtered) {
@@ -2250,8 +2246,7 @@ List<PiePoint> pieData(
           allSeconds == 0 ? 0 : ((totals[task.id]! / allSeconds) * 100).round(),
         ),
       )
-      .toList()
-    ..sort((a, b) => b.seconds.compareTo(a.seconds));
+      .toList();
 }
 
 List<String> mondayWeek(DateTime now) {
