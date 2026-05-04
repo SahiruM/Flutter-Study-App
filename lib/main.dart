@@ -1113,8 +1113,7 @@ class StatsSection extends StatefulWidget {
 }
 
 class _StatsSectionState extends State<StatsSection> {
-  String _range = 'weekly';
-  String _pieRange = 'week';
+  String _subjectRange = 'week';
 
   @override
   Widget build(BuildContext context) {
@@ -1127,8 +1126,11 @@ class _StatsSectionState extends State<StatsSection> {
     final weekSeconds = widget.sessions
         .where((s) => week.contains(s.date))
         .fold(0, (sum, s) => sum + s.duration);
-    final chart = chartData(widget.sessions, _range, now);
-    final pie = pieData(widget.sessions, widget.tasks, _pieRange, now);
+    final pie = pieData(widget.sessions, widget.tasks, _subjectRange, now);
+    final totalSubjectSeconds = pie.fold<int>(
+      0,
+      (sum, item) => sum + item.seconds,
+    );
     return Column(
       children: [
         Row(
@@ -1158,34 +1160,6 @@ class _StatsSectionState extends State<StatsSection> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Study Progress',
-                  style: Theme.of(context).textTheme.titleLarge,
-                ),
-                const SizedBox(height: 10),
-                SegmentedButton<String>(
-                  segments: const [
-                    ButtonSegment(value: 'daily', label: Text('daily')),
-                    ButtonSegment(value: 'weekly', label: Text('weekly')),
-                    ButtonSegment(value: 'monthly', label: Text('monthly')),
-                  ],
-                  selected: {_range},
-                  onSelectionChanged: (value) =>
-                      setState(() => _range = value.first),
-                ),
-                const SizedBox(height: 14),
-                SizedBox(height: 220, child: BarChart(data: chart)),
-              ],
-            ),
-          ),
-        ),
-        const SizedBox(height: 16),
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
                   'Time per Subject',
                   style: Theme.of(context).textTheme.titleLarge,
                 ),
@@ -1194,11 +1168,11 @@ class _StatsSectionState extends State<StatsSection> {
                   segments: const [
                     ButtonSegment(value: 'today', label: Text('Today')),
                     ButtonSegment(value: 'week', label: Text('Week')),
-                    ButtonSegment(value: 'all', label: Text('All')),
+                    ButtonSegment(value: 'month', label: Text('Month')),
                   ],
-                  selected: {_pieRange},
+                  selected: {_subjectRange},
                   onSelectionChanged: (value) =>
-                      setState(() => _pieRange = value.first),
+                      setState(() => _subjectRange = value.first),
                 ),
                 const SizedBox(height: 14),
                 if (pie.isEmpty)
@@ -1207,38 +1181,121 @@ class _StatsSectionState extends State<StatsSection> {
                     child: Center(child: Text('No sessions recorded yet.')),
                   )
                 else
-                  Wrap(
-                    spacing: 24,
-                    runSpacing: 16,
-                    crossAxisAlignment: WrapCrossAlignment.center,
-                    children: [
-                      SizedBox(
-                        width: 220,
-                        height: 220,
-                        child: PieChart(data: pie),
-                      ),
-                      SizedBox(
-                        width: 260,
-                        child: Column(
+                  LayoutBuilder(
+                    builder: (context, constraints) {
+                      final compact = constraints.maxWidth < 640;
+                      final chart = SizedBox(
+                        width: compact ? 180 : 220,
+                        height: compact ? 180 : 220,
+                        child: Stack(
+                          alignment: Alignment.center,
                           children: [
-                            for (final item in pie)
-                              ListTile(
-                                dense: true,
-                                leading: CircleAvatar(
-                                  radius: 8,
-                                  backgroundColor: item.color,
+                            PieChart(
+                              data: pie,
+                              holeColor: Theme.of(
+                                context,
+                              ).colorScheme.surface,
+                            ),
+                            Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  'Total',
+                                  style: Theme.of(context).textTheme.labelSmall,
                                 ),
-                                title: Text(item.name),
-                                subtitle: Text(formatDuration(item.seconds)),
-                                trailing: Text('${item.percent}%'),
-                              ),
+                                Text(
+                                  formatDuration(totalSubjectSeconds),
+                                  textAlign: TextAlign.center,
+                                  style: Theme.of(context).textTheme.titleMedium
+                                      ?.copyWith(fontWeight: FontWeight.w800),
+                                ),
+                              ],
+                            ),
                           ],
                         ),
-                      ),
-                    ],
+                      );
+                      final details = Column(
+                        children: [
+                          for (final item in pie)
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 12),
+                              child: SubjectTimeRow(item: item),
+                            ),
+                        ],
+                      );
+                      if (compact) {
+                        return Column(
+                          children: [
+                            chart,
+                            const SizedBox(height: 18),
+                            details,
+                          ],
+                        );
+                      }
+                      return Row(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          chart,
+                          const SizedBox(width: 28),
+                          Expanded(child: details),
+                        ],
+                      );
+                    },
                   ),
               ],
             ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class SubjectTimeRow extends StatelessWidget {
+  const SubjectTimeRow({required this.item, super.key});
+
+  final PiePoint item;
+
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            CircleAvatar(radius: 6, backgroundColor: item.color),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                item.name,
+                overflow: TextOverflow.ellipsis,
+                style: textTheme.bodyMedium?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Text(formatDuration(item.seconds), style: textTheme.bodyMedium),
+            const SizedBox(width: 10),
+            SizedBox(
+              width: 42,
+              child: Text(
+                '${item.percent}%',
+                textAlign: TextAlign.end,
+                style: textTheme.labelMedium,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(99),
+          child: LinearProgressIndicator(
+            value: item.percent / 100,
+            minHeight: 8,
+            backgroundColor: item.color.withOpacity(0.16),
+            valueColor: AlwaysStoppedAnimation<Color>(item.color),
           ),
         ),
       ],
@@ -1298,13 +1355,14 @@ class BarChart extends StatelessWidget {
 }
 
 class PieChart extends StatelessWidget {
-  const PieChart({required this.data, super.key});
+  const PieChart({required this.data, required this.holeColor, super.key});
 
   final List<PiePoint> data;
+  final Color holeColor;
 
   @override
   Widget build(BuildContext context) =>
-      CustomPaint(painter: PieChartPainter(data));
+      CustomPaint(painter: PieChartPainter(data, holeColor));
 }
 
 class GlowPainter extends CustomPainter {
@@ -1384,8 +1442,9 @@ class BarChartPainter extends CustomPainter {
 }
 
 class PieChartPainter extends CustomPainter {
-  PieChartPainter(this.data);
+  PieChartPainter(this.data, this.holeColor);
   final List<PiePoint> data;
+  final Color holeColor;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -1404,13 +1463,13 @@ class PieChartPainter extends CustomPainter {
     canvas.drawCircle(
       rect.center,
       size.shortestSide * 0.24,
-      Paint()..color = Colors.white.withOpacity(0.92),
+      Paint()..color = holeColor,
     );
   }
 
   @override
   bool shouldRepaint(covariant PieChartPainter oldDelegate) =>
-      oldDelegate.data != data;
+      oldDelegate.data != data || oldDelegate.holeColor != holeColor;
 }
 
 class StudyRepository {
@@ -2168,10 +2227,13 @@ List<PiePoint> pieData(
   DateTime now,
 ) {
   final week = mondayWeek(now);
+  final monthPrefix =
+      '${now.year.toString().padLeft(4, '0')}-${now.month.toString().padLeft(2, '0')}-';
   final filtered = sessions.where((session) {
     if (range == 'today') return session.date == dateKey(now);
     if (range == 'week') return week.contains(session.date);
-    return true;
+    if (range == 'month') return session.date.startsWith(monthPrefix);
+    return false;
   }).toList();
   final totals = <String, int>{};
   for (final session in filtered) {
@@ -2188,7 +2250,8 @@ List<PiePoint> pieData(
           allSeconds == 0 ? 0 : ((totals[task.id]! / allSeconds) * 100).round(),
         ),
       )
-      .toList();
+      .toList()
+    ..sort((a, b) => b.seconds.compareTo(a.seconds));
 }
 
 List<String> mondayWeek(DateTime now) {
