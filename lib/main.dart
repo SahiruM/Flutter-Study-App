@@ -453,7 +453,7 @@ class _StudyHomeState extends State<StudyHome> with WidgetsBindingObserver {
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text('SuuStudy'),
+                      const Text('StudyBud'),
                       Text(
                         _syncStatusText,
                         style: Theme.of(context).textTheme.labelSmall,
@@ -630,7 +630,7 @@ class _AuthScreenState extends State<AuthScreen> {
               const Icon(Icons.favorite, size: 68, color: Color(0xFFFF8FB3)),
               const SizedBox(height: 12),
               Text(
-                _signUp ? 'Join SuuStudy' : 'Welcome back',
+                _signUp ? 'Join StudyBud' : 'Welcome back',
                 textAlign: TextAlign.center,
                 style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                   fontWeight: FontWeight.w800,
