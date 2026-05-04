@@ -27,7 +27,7 @@ class StudyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      title: 'SuuStudy',
+      title: 'StudyBud',
       theme: _theme(Brightness.light),
       darkTheme: _theme(Brightness.dark),
       home: const BootstrapScreen(),
