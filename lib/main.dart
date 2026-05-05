@@ -4,6 +4,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:lottie/lottie.dart';
 
 import 'state_store.dart';
 
@@ -410,6 +411,14 @@ class _StudyHomeState extends State<StudyHome> with WidgetsBindingObserver {
     );
   }
 
+  void _feedUnicorn(String todayDate, int earnedRainbows) {
+    _update(
+      (state) => state.copyWith(
+        unicorn: state.unicorn.feed(todayDate, earnedRainbows),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Theme(
@@ -526,6 +535,8 @@ class _StudyHomeState extends State<StudyHome> with WidgetsBindingObserver {
                       StatsSection(
                         sessions: _state.sessions,
                         tasks: _state.tasks,
+                        unicorn: _state.unicorn,
+                        onFeedUnicorn: _feedUnicorn,
                       ),
                     ],
                   );
@@ -1102,10 +1113,18 @@ class CountdownCard extends StatelessWidget {
 }
 
 class StatsSection extends StatefulWidget {
-  const StatsSection({required this.sessions, required this.tasks, super.key});
+  const StatsSection({
+    required this.sessions,
+    required this.tasks,
+    required this.unicorn,
+    required this.onFeedUnicorn,
+    super.key,
+  });
 
   final List<StudySession> sessions;
   final List<StudyTask> tasks;
+  final UnicornState unicorn;
+  final void Function(String todayDate, int earnedRainbows) onFeedUnicorn;
 
   @override
   State<StatsSection> createState() => _StatsSectionState();
@@ -1150,7 +1169,12 @@ class _StatsSectionState extends State<StatsSection> {
           ],
         ),
         const SizedBox(height: 16),
-        RabbitCarrotCard(todaySeconds: todaySeconds, todayDate: today),
+        UnicornRainbowCard(
+          todaySeconds: todaySeconds,
+          todayDate: today,
+          unicorn: widget.unicorn,
+          onFeed: widget.onFeedUnicorn,
+        ),
         const SizedBox(height: 16),
         SizedBox(
           width: double.infinity,
@@ -1290,112 +1314,75 @@ class StatCard extends StatelessWidget {
   }
 }
 
-class RabbitCarrotCard extends StatefulWidget {
-  const RabbitCarrotCard({
+class UnicornRainbowCard extends StatefulWidget {
+  const UnicornRainbowCard({
     required this.todaySeconds,
     required this.todayDate,
+    required this.unicorn,
+    required this.onFeed,
     super.key,
   });
 
   final int todaySeconds;
   final String todayDate;
+  final UnicornState unicorn;
+  final void Function(String todayDate, int earnedRainbows) onFeed;
 
   @override
-  State<RabbitCarrotCard> createState() => _RabbitCarrotCardState();
+  State<UnicornRainbowCard> createState() => _UnicornRainbowCardState();
 }
 
-class _RabbitCarrotCardState extends State<RabbitCarrotCard>
-    with SingleTickerProviderStateMixin {
-  static const _rabbitFeedKey = 'rabbit_feed_today';
-  late final AnimationController _controller;
-  var _fedCarrots = 0;
-  late String _feedDate;
+class _UnicornRainbowCardState extends State<UnicornRainbowCard>
+{
+  Timer? _eatingTimer;
+  bool _isEating = false;
 
-  int get _earnedCarrots => widget.todaySeconds ~/ 3600;
-  int get _availableCarrots => math.max(0, _earnedCarrots - _fedCarrots);
-
-  @override
-  void initState() {
-    super.initState();
-    _feedDate = widget.todayDate;
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1800),
-    )..repeat();
-    _loadFeedState();
-  }
-
-  @override
-  void didUpdateWidget(covariant RabbitCarrotCard oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (widget.todayDate != _feedDate) {
-      setState(() {
-        _feedDate = widget.todayDate;
-        _fedCarrots = 0;
-      });
-      _saveFeedState();
-    }
-    if (_fedCarrots > _earnedCarrots) {
-      _fedCarrots = _earnedCarrots;
-      _saveFeedState();
-    }
-  }
+  int get _earnedRainbows => widget.todaySeconds ~/ 3600;
+  int get _fedRainbows =>
+      math.min(widget.unicorn.fedToday(widget.todayDate), _earnedRainbows);
+  int get _availableRainbows => math.max(0, _earnedRainbows - _fedRainbows);
 
   @override
   void dispose() {
-    _controller.dispose();
+    _eatingTimer?.cancel();
     super.dispose();
   }
 
-  void _feedRabbit() {
-    if (_availableCarrots <= 0) return;
-    setState(() => _fedCarrots += 1);
-    _saveFeedState();
-  }
-
-  Future<void> _loadFeedState() async {
-    final stored = await readStoredValue(_rabbitFeedKey);
-    if (!mounted || stored == null || stored.isEmpty) return;
-    late final Map<String, dynamic> json;
-    try {
-      json = jsonDecode(stored) as Map<String, dynamic>;
-    } catch (_) {
-      return;
-    }
-    final storedDate = json['date'] as String? ?? '';
-    final storedFed = (json['fedCarrots'] as num?)?.toInt() ?? 0;
-    setState(() {
-      _feedDate = widget.todayDate;
-      _fedCarrots = storedDate == widget.todayDate
-          ? math.min(storedFed, _earnedCarrots)
-          : 0;
+  void _feedUnicorn() {
+    if (_availableRainbows <= 0) return;
+    setState(() => _isEating = true);
+    _eatingTimer?.cancel();
+    _eatingTimer = Timer(const Duration(milliseconds: 1400), () {
+      if (mounted) setState(() => _isEating = false);
     });
-    if (storedDate != widget.todayDate || storedFed != _fedCarrots) {
-      _saveFeedState();
-    }
-  }
-
-  Future<void> _saveFeedState() async {
-    await writeStoredValue(
-      _rabbitFeedKey,
-      jsonEncode({'date': _feedDate, 'fedCarrots': _fedCarrots}),
-    );
+    widget.onFeed(widget.todayDate, _earnedRainbows);
   }
 
   String get _title {
-    if (_fedCarrots >= 3) return 'Very happy rabbit';
-    if (_fedCarrots > 0) return 'Happy rabbit';
-    return 'Hungry rabbit';
+    if (_earnedRainbows == 0) return 'Lonely unicorn';
+    if (_fedRainbows == 0) return 'Grumpy unicorn';
+    if (_fedRainbows <= 2) return 'Giggly unicorn';
+    if (_fedRainbows <= 5) return 'Sparkly unicorn';
+    return 'Too full unicorn';
   }
 
   String get _message {
-    if (_availableCarrots > 0) {
-      return 'You earned $_availableCarrots carrot${_availableCarrots == 1 ? '' : 's'}. Feed the rabbit before the day resets.';
+    if (_availableRainbows > 0) {
+      return 'You earned $_availableRainbows rainbow${_availableRainbows == 1 ? '' : 's'}. Feed the unicorn before the day resets.';
     }
-    if (_earnedCarrots == 0) {
-      return 'Study 1 full hour today to earn the first carrot.';
+    if (_earnedRainbows == 0) {
+      return 'Study 1 full hour today to earn the first rainbow.';
     }
-    return 'All carrots are fed. The rabbit is comfy for now.';
+    return 'All rainbows are eaten. The unicorn is full and sleepy.';
+  }
+
+  String get _thought {
+    if (_isEating) return '🌈 nom nom';
+    if (_earnedRainbows == 0) return '🥺 I’m hungry';
+    if (_fedRainbows == 0) return '😤 rainbows pls';
+    if (_fedRainbows <= 2) return '😊 hehe thanks';
+    if (_fedRainbows <= 5) return '🤣 sparkly happy';
+    return '😴 too full...';
   }
 
   @override
@@ -1406,27 +1393,23 @@ class _RabbitCarrotCardState extends State<RabbitCarrotCard>
         child: Padding(
           padding: const EdgeInsets.all(16),
           child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               SizedBox(
-                width: 112,
-                height: 112,
-                child: AnimatedBuilder(
-                  animation: _controller,
-                  builder: (context, child) => CustomPaint(
-                    painter: _RabbitPainter(
-                      animation: _controller.value,
-                      fedCarrots: _fedCarrots,
-                      hasCarrot: _availableCarrots > 0,
-                      color: Theme.of(context).colorScheme.primary,
-                    ),
-                  ),
-                ),
+                width: 160,
+                height: 160,
+                child: UnicornLottieMascot(key: ValueKey(_thought)),
               ),
               const SizedBox(width: 16),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: UnicornThoughtBubble(text: _thought),
+                    ),
+                    const SizedBox(height: 10),
                     Text(
                       _title,
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(
@@ -1450,15 +1433,17 @@ class _RabbitCarrotCardState extends State<RabbitCarrotCard>
                         Chip(
                           avatar: const Icon(Icons.eco, size: 16),
                           label: Text(
-                            '$_availableCarrots / $_earnedCarrots carrots',
+                            '$_availableRainbows / $_earnedRainbows rainbows',
                           ),
                         ),
                         FilledButton.icon(
-                          onPressed: _availableCarrots > 0 ? _feedRabbit : null,
-                          icon: const Icon(Icons.restaurant),
-                          label: const Text('Feed'),
+                          onPressed: _availableRainbows > 0
+                              ? _feedUnicorn
+                              : null,
+                          icon: const Icon(Icons.auto_awesome),
+                          label: const Text('Feed Rainbow'),
                         ),
-                        const Text('1 carrot = 1 study hour'),
+                        const Text('1 rainbow = 1 study hour'),
                       ],
                     ),
                   ],
@@ -1472,158 +1457,52 @@ class _RabbitCarrotCardState extends State<RabbitCarrotCard>
   }
 }
 
-class _RabbitPainter extends CustomPainter {
-  _RabbitPainter({
-    required this.animation,
-    required this.fedCarrots,
-    required this.hasCarrot,
-    required this.color,
-  });
-
-  final double animation;
-  final int fedCarrots;
-  final bool hasCarrot;
-  final Color color;
+class UnicornLottieMascot extends StatelessWidget {
+  const UnicornLottieMascot({super.key});
 
   @override
-  void paint(Canvas canvas, Size size) {
-    final bob = math.sin(animation * math.pi * 2) * (fedCarrots > 0 ? 4 : 1.5);
-    final earWiggle =
-        math.sin(animation * math.pi * 4) * (fedCarrots > 0 ? 5 : 2);
-    final blink = animation > 0.48 && animation < 0.55;
-    final center = Offset(size.width / 2, size.height / 2 + bob);
-    final furPaint = Paint()..color = const Color(0xFFFFFBFF);
-    final bellyPaint = Paint()..color = const Color(0xFFFFEAF1);
-    final outlinePaint = Paint()
-      ..color = const Color(0xFF5D4A66)
-      ..strokeWidth = 3
-      ..strokeCap = StrokeCap.round
-      ..strokeJoin = StrokeJoin.round
-      ..style = PaintingStyle.stroke;
-    final eyePaint = Paint()..color = const Color(0xFF2F2938);
-    final cheekPaint = Paint()
-      ..color = const Color(0xFFFFB3C6).withValues(alpha: 0.72);
-
-    canvas.drawOval(
-      Rect.fromCenter(
-        center: Offset(center.dx, size.height - 10),
-        width: size.width * 0.58,
-        height: 10,
-      ),
-      Paint()..color = Colors.black.withValues(alpha: 0.08),
+  Widget build(BuildContext context) {
+    return Lottie.asset(
+      'assets/unicorn/Unicorn Emoji.json',
+      repeat: true,
+      fit: BoxFit.scaleDown,
+      alignment: Alignment.center,
     );
-
-    final leftEar = RRect.fromRectAndRadius(
-      Rect.fromCenter(
-        center: Offset(center.dx - 22 - earWiggle, center.dy - 44),
-        width: 20,
-        height: 54,
-      ),
-      const Radius.circular(14),
-    );
-    final rightEar = RRect.fromRectAndRadius(
-      Rect.fromCenter(
-        center: Offset(center.dx + 22 + earWiggle, center.dy - 44),
-        width: 20,
-        height: 54,
-      ),
-      const Radius.circular(14),
-    );
-    canvas.drawRRect(leftEar, furPaint);
-    canvas.drawRRect(rightEar, furPaint);
-    canvas.drawRRect(leftEar, outlinePaint);
-    canvas.drawRRect(rightEar, outlinePaint);
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(
-        Rect.fromCenter(center: leftEar.outerRect.center, width: 8, height: 34),
-        const Radius.circular(8),
-      ),
-      bellyPaint,
-    );
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(
-        Rect.fromCenter(
-          center: rightEar.outerRect.center,
-          width: 8,
-          height: 34,
-        ),
-        const Radius.circular(8),
-      ),
-      bellyPaint,
-    );
-
-    canvas.drawCircle(Offset(center.dx, center.dy + 18), 38, furPaint);
-    canvas.drawCircle(Offset(center.dx, center.dy + 18), 38, outlinePaint);
-    canvas.drawOval(
-      Rect.fromCenter(
-        center: Offset(center.dx, center.dy + 28),
-        width: 38,
-        height: 28,
-      ),
-      bellyPaint,
-    );
-    canvas.drawCircle(center, 34, furPaint);
-    canvas.drawCircle(center, 34, outlinePaint);
-    canvas.drawCircle(Offset(center.dx - 18, center.dy + 8), 6, cheekPaint);
-    canvas.drawCircle(Offset(center.dx + 18, center.dy + 8), 6, cheekPaint);
-
-    if (blink) {
-      canvas.drawLine(
-        Offset(center.dx - 15, center.dy - 8),
-        Offset(center.dx - 5, center.dy - 8),
-        outlinePaint,
-      );
-      canvas.drawLine(
-        Offset(center.dx + 5, center.dy - 8),
-        Offset(center.dx + 15, center.dy - 8),
-        outlinePaint,
-      );
-    } else {
-      canvas.drawCircle(Offset(center.dx - 10, center.dy - 8), 4.5, eyePaint);
-      canvas.drawCircle(Offset(center.dx + 10, center.dy - 8), 4.5, eyePaint);
-    }
-
-    canvas.drawCircle(
-      Offset(center.dx, center.dy + 2),
-      3,
-      Paint()..color = const Color(0xFFFF8FB3),
-    );
-    final smile = Path()
-      ..moveTo(center.dx - 12, center.dy + 12)
-      ..quadraticBezierTo(
-        center.dx,
-        center.dy + (fedCarrots > 0 ? 23 : 16),
-        center.dx + 12,
-        center.dy + 12,
-      );
-    canvas.drawPath(smile, outlinePaint);
-
-    if (hasCarrot) {
-      final carrotCenter = Offset(size.width - 20, size.height - 24);
-      final carrot = Path()
-        ..moveTo(carrotCenter.dx - 8, carrotCenter.dy - 13)
-        ..lineTo(carrotCenter.dx + 14, carrotCenter.dy - 5)
-        ..lineTo(carrotCenter.dx - 4, carrotCenter.dy + 14)
-        ..close();
-      canvas.drawPath(carrot, Paint()..color = const Color(0xFFFF8A3D));
-      canvas.drawPath(carrot, outlinePaint);
-      canvas.drawLine(
-        Offset(carrotCenter.dx + 9, carrotCenter.dy - 10),
-        Offset(carrotCenter.dx + 18, carrotCenter.dy - 20),
-        Paint()
-          ..color = const Color(0xFF65B96F)
-          ..strokeWidth = 3
-          ..strokeCap = StrokeCap.round,
-      );
-    }
   }
+}
+
+class UnicornThoughtBubble extends StatelessWidget {
+  const UnicornThoughtBubble({required this.text, super.key});
+
+  final String text;
 
   @override
-  bool shouldRepaint(covariant _RabbitPainter oldDelegate) =>
-      oldDelegate.animation != animation ||
-      oldDelegate.fedCarrots != fedCarrots ||
-      oldDelegate.hasCarrot != hasCarrot ||
-      oldDelegate.color != color;
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: colors.surface,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: colors.outlineVariant),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.08),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+        child: Text(
+          text,
+          style: Theme.of(
+            context,
+          ).textTheme.labelMedium?.copyWith(fontWeight: FontWeight.w700),
+        ),
+      ),
+    );
+  }
 }
 
 class BarChart extends StatelessWidget {
@@ -2050,6 +1929,7 @@ class AppState {
     required this.sessions,
     required this.timer,
     required this.countdown,
+    required this.unicorn,
     required this.updatedAt,
     required this.userName,
     required this.isDark,
@@ -2062,6 +1942,7 @@ class AppState {
   final List<StudySession> sessions;
   final StudyTimerState timer;
   final CountdownState countdown;
+  final UnicornState unicorn;
   final String? activeTaskId;
   final DateTime updatedAt;
   final AuthSession? auth;
@@ -2081,6 +1962,7 @@ class AppState {
       sessions: const [],
       timer: StudyTimerState.empty(),
       countdown: CountdownState.initial(now),
+      unicorn: UnicornState.initial(now),
       activeTaskId: '1',
       updatedAt: now,
       userName: 'Suu',
@@ -2093,6 +1975,7 @@ class AppState {
     List<StudySession>? sessions,
     StudyTimerState? timer,
     CountdownState? countdown,
+    UnicornState? unicorn,
     String? activeTaskId,
     DateTime? updatedAt,
     AuthSession? auth,
@@ -2106,6 +1989,7 @@ class AppState {
       sessions: sessions ?? this.sessions,
       timer: timer ?? this.timer,
       countdown: countdown ?? this.countdown,
+      unicorn: unicorn ?? this.unicorn,
       activeTaskId: activeTaskId ?? this.activeTaskId,
       updatedAt: updatedAt ?? this.updatedAt,
       auth: clearAuth ? null : auth ?? this.auth,
@@ -2197,12 +2081,16 @@ class AppState {
         remote.countdown.updatedAt.isAfter(countdown.updatedAt)
         ? remote.countdown
         : countdown;
+    final chosenUnicorn = remote.unicorn.updatedAt.isAfter(unicorn.updatedAt)
+        ? remote.unicorn
+        : unicorn;
     return copyWith(
       tasks: taskMap.values.toList()..sort((a, b) => a.id.compareTo(b.id)),
       sessions: sessionMap.values.toList()
         ..sort((a, b) => a.createdAt.compareTo(b.createdAt)),
       timer: chosenTimer,
       countdown: chosenCountdown,
+      unicorn: chosenUnicorn,
       activeTaskId: remote.updatedAt.isAfter(updatedAt)
           ? remote.activeTaskId
           : activeTaskId,
@@ -2222,6 +2110,7 @@ class AppState {
     'sessions': sessions.map((session) => session.toJson()).toList(),
     'timer': timer.toJson(),
     'countdown': countdown.toJson(),
+    'unicorn': unicorn.toJson(),
     'activeTaskId': activeTaskId,
     'updatedAt': updatedAt.toIso8601String(),
     'auth': auth?.toJson(),
@@ -2242,6 +2131,9 @@ class AppState {
     ),
     countdown: CountdownState.fromJson(
       json['countdown'] as Map<String, dynamic>? ?? const {},
+    ),
+    unicorn: UnicornState.fromJson(
+      (json['unicorn'] ?? json['rabbit']) as Map<String, dynamic>? ?? const {},
     ),
     activeTaskId: json['activeTaskId'] as String?,
     updatedAt:
@@ -2358,6 +2250,50 @@ class StudySession {
         DateTime.tryParse(json['createdAt'] as String? ?? '') ?? DateTime.now(),
     updatedAt:
         DateTime.tryParse(json['updatedAt'] as String? ?? '') ?? DateTime.now(),
+  );
+}
+
+class UnicornState {
+  UnicornState({
+    required this.feedDate,
+    required this.fedRainbows,
+    required this.updatedAt,
+  });
+
+  final String feedDate;
+  final int fedRainbows;
+  final DateTime updatedAt;
+
+  factory UnicornState.initial(DateTime now) =>
+      UnicornState(feedDate: dateKey(now), fedRainbows: 0, updatedAt: now);
+
+  int fedToday(String todayDate) => feedDate == todayDate ? fedRainbows : 0;
+
+  UnicornState feed(String todayDate, int earnedRainbows) {
+    final currentFed = fedToday(todayDate);
+    if (currentFed >= earnedRainbows) return this;
+    return UnicornState(
+      feedDate: todayDate,
+      fedRainbows: currentFed + 1,
+      updatedAt: DateTime.now(),
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+    'feedDate': feedDate,
+    'fedRainbows': fedRainbows,
+    'updatedAt': updatedAt.toIso8601String(),
+  };
+
+  factory UnicornState.fromJson(Map<String, dynamic> json) => UnicornState(
+    feedDate: json['feedDate'] as String? ?? dateKey(DateTime.now()),
+    fedRainbows:
+        (json['fedRainbows'] as num?)?.toInt() ??
+        (json['fedCarrots'] as num?)?.toInt() ??
+        0,
+    updatedAt:
+        DateTime.tryParse(json['updatedAt'] as String? ?? '') ??
+        DateTime.now(),
   );
 }
 
