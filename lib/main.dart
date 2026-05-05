@@ -4,7 +4,6 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
-import 'package:lottie/lottie.dart';
 
 import 'state_store.dart';
 
@@ -28,7 +27,7 @@ class StudyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      title: 'StudyBud',
+      title: 'suuStudy',
       theme: _theme(Brightness.light),
       darkTheme: _theme(Brightness.dark),
       home: const BootstrapScreen(),
@@ -462,7 +461,7 @@ class _StudyHomeState extends State<StudyHome> with WidgetsBindingObserver {
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text('SuuStudy'),
+                      const Text('suuStudy'),
                       Text(
                         _syncStatusText,
                         style: Theme.of(context).textTheme.labelSmall,
@@ -565,6 +564,8 @@ class _StudyHomeState extends State<StudyHome> with WidgetsBindingObserver {
                                 ),
                         ),
                       ),
+                      const SizedBox(height: 22),
+                      const HeartFooter(),
                     ],
                   );
                 },
@@ -572,6 +573,25 @@ class _StudyHomeState extends State<StudyHome> with WidgetsBindingObserver {
             ),
           );
         },
+      ),
+    );
+  }
+}
+
+class HeartFooter extends StatelessWidget {
+  const HeartFooter({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Text(
+        '<3',
+        style: Theme.of(context).textTheme.titleMedium?.copyWith(
+          color: Theme.of(context).colorScheme.primary,
+          fontFamily: 'Lucida Handwriting',
+          fontStyle: FontStyle.italic,
+          fontWeight: FontWeight.w600,
+        ),
       ),
     );
   }
@@ -641,7 +661,7 @@ class _AuthScreenState extends State<AuthScreen> {
               const Icon(Icons.favorite, size: 68, color: Color(0xFFFF8FB3)),
               const SizedBox(height: 12),
               Text(
-                _signUp ? 'Join SuuStudy' : 'Welcome back',
+                _signUp ? 'Join suuStudy' : 'Welcome back',
                 textAlign: TextAlign.center,
                 style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                   fontWeight: FontWeight.w800,
@@ -715,6 +735,8 @@ class _AuthScreenState extends State<AuthScreen> {
                   ),
                 ),
               ),
+              const SizedBox(height: 22),
+              const HeartFooter(),
             ],
           ),
         ),
@@ -1191,7 +1213,6 @@ class _StatsSectionState extends State<StatsSection> {
                   const SizedBox(height: 10),
                   SegmentedButton<String>(
                     segments: const [
-                      ButtonSegment(value: 'daily', label: Text('daily')),
                       ButtonSegment(value: 'weekly', label: Text('weekly')),
                       ButtonSegment(value: 'monthly', label: Text('monthly')),
                     ],
@@ -1332,8 +1353,7 @@ class UnicornRainbowCard extends StatefulWidget {
   State<UnicornRainbowCard> createState() => _UnicornRainbowCardState();
 }
 
-class _UnicornRainbowCardState extends State<UnicornRainbowCard>
-{
+class _UnicornRainbowCardState extends State<UnicornRainbowCard> {
   Timer? _eatingTimer;
   bool _isEating = false;
 
@@ -1358,14 +1378,6 @@ class _UnicornRainbowCardState extends State<UnicornRainbowCard>
     widget.onFeed(widget.todayDate, _earnedRainbows);
   }
 
-  String get _title {
-    if (_earnedRainbows == 0) return 'Lonely unicorn';
-    if (_fedRainbows == 0) return 'Grumpy unicorn';
-    if (_fedRainbows <= 2) return 'Giggly unicorn';
-    if (_fedRainbows <= 5) return 'Sparkly unicorn';
-    return 'Too full unicorn';
-  }
-
   String get _message {
     if (_availableRainbows > 0) {
       return 'You earned $_availableRainbows rainbow${_availableRainbows == 1 ? '' : 's'}. Feed the unicorn before the day resets.';
@@ -1378,10 +1390,10 @@ class _UnicornRainbowCardState extends State<UnicornRainbowCard>
 
   String get _thought {
     if (_isEating) return '🌈 nom nom';
-    if (_earnedRainbows == 0) return '🥺 I’m hungry';
+    if (_earnedRainbows == 0) return "🥺 I'm hungry";
     if (_fedRainbows == 0) return '😤 rainbows pls';
     if (_fedRainbows <= 2) return '😊 hehe thanks';
-    if (_fedRainbows <= 5) return '🤣 sparkly happy';
+    if (_fedRainbows <= 5) return '✨ sparkly happy';
     return '😴 too full...';
   }
 
@@ -1398,7 +1410,16 @@ class _UnicornRainbowCardState extends State<UnicornRainbowCard>
               SizedBox(
                 width: 160,
                 height: 160,
-                child: UnicornLottieMascot(key: ValueKey(_thought)),
+                child: UnicornShapeMascot(
+                  key: ValueKey(_thought),
+                  mood: _isEating
+                      ? UnicornMood.eating
+                      : (_earnedRainbows == 0 || _fedRainbows == 0)
+                      ? UnicornMood.sad
+                      : (_fedRainbows > 5)
+                      ? UnicornMood.sleepy
+                      : UnicornMood.happy,
+                ),
               ),
               const SizedBox(width: 16),
               Expanded(
@@ -1410,13 +1431,6 @@ class _UnicornRainbowCardState extends State<UnicornRainbowCard>
                       child: UnicornThoughtBubble(text: _thought),
                     ),
                     const SizedBox(height: 10),
-                    Text(
-                      _title,
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
                     Text(
                       _message,
                       style: Theme.of(context).textTheme.bodyMedium,
@@ -1457,18 +1471,194 @@ class _UnicornRainbowCardState extends State<UnicornRainbowCard>
   }
 }
 
-class UnicornLottieMascot extends StatelessWidget {
-  const UnicornLottieMascot({super.key});
+enum UnicornMood { sad, happy, eating, sleepy }
+
+class UnicornShapeMascot extends StatefulWidget {
+  const UnicornShapeMascot({required this.mood, super.key});
+
+  final UnicornMood mood;
+
+  @override
+  State<UnicornShapeMascot> createState() => _UnicornShapeMascotState();
+}
+
+class _UnicornShapeMascotState extends State<UnicornShapeMascot>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1800),
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Lottie.asset(
-      'assets/unicorn/Unicorn Emoji.json',
-      repeat: true,
-      fit: BoxFit.scaleDown,
-      alignment: Alignment.center,
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, child) {
+        final sad = widget.mood == UnicornMood.sad;
+        final bounce = sad
+            ? 1.5
+            : math.sin(_controller.value * math.pi * 2) * 2.5;
+        return Transform.translate(offset: Offset(0, bounce), child: child);
+      },
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          Image.asset(
+            'assets/unicorn/unico.png',
+            fit: BoxFit.contain,
+            filterQuality: FilterQuality.high,
+          ),
+          CustomPaint(
+            painter: UnicornMascotPainter(
+              mood: widget.mood,
+              progress: _controller,
+              colors: Theme.of(context).colorScheme,
+            ),
+          ),
+        ],
+      ),
     );
   }
+}
+
+class UnicornMascotPainter extends CustomPainter {
+  UnicornMascotPainter({
+    required this.mood,
+    required this.progress,
+    required this.colors,
+  }) : super(repaint: progress);
+
+  final UnicornMood mood;
+  final Animation<double> progress;
+  final ColorScheme colors;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final scale = size.shortestSide / 160;
+    canvas.save();
+    canvas.scale(scale);
+    final phase = progress.value;
+    final sad = mood == UnicornMood.sad;
+    final sleepy = mood == UnicornMood.sleepy;
+    final eating = mood == UnicornMood.eating;
+
+    _drawFace(canvas, sad, sleepy, eating, phase);
+    if (sad) {
+      _drawTears(canvas, phase);
+    } else if (mood == UnicornMood.happy || eating) {
+      _drawSparkle(canvas, const Offset(126, 43), phase);
+    }
+
+    canvas.restore();
+  }
+
+  void _drawFace(
+    Canvas canvas,
+    bool sad,
+    bool sleepy,
+    bool eating,
+    double phase,
+  ) {
+    final ink = Paint()
+      ..color = const Color(0xFF14152E)
+      ..strokeWidth = 2.6
+      ..strokeCap = StrokeCap.round
+      ..style = PaintingStyle.stroke;
+    final eye = Paint()..color = const Color(0xFF14152E);
+    final shine = Paint()..color = Colors.white;
+
+    if (sleepy) {
+      canvas.drawArc(
+        const Rect.fromLTWH(59, 66, 16, 9),
+        0,
+        math.pi,
+        false,
+        ink,
+      );
+      canvas.drawArc(
+        const Rect.fromLTWH(91, 66, 16, 9),
+        0,
+        math.pi,
+        false,
+        ink,
+      );
+    } else {
+      final blink = phase > 0.47 && phase < 0.53 && !sad;
+      if (blink) {
+        canvas.drawLine(const Offset(60, 70), const Offset(73, 70), ink);
+        canvas.drawLine(const Offset(93, 70), const Offset(106, 70), ink);
+      } else {
+        canvas.drawCircle(const Offset(66, 69), 5.8, eye);
+        canvas.drawCircle(const Offset(100, 69), 5.8, eye);
+        canvas.drawCircle(const Offset(68, 66), 2.1, shine);
+        canvas.drawCircle(const Offset(102, 66), 2.1, shine);
+      }
+    }
+
+    final cheek = Paint()
+      ..color = const Color(0xFF9B6CA8).withValues(alpha: 0.65);
+    canvas.drawCircle(const Offset(69, 91), 3.5, cheek);
+    canvas.drawCircle(const Offset(96, 91), 3.5, cheek);
+
+    if (sad) {
+      canvas.drawArc(
+        const Rect.fromLTWH(74, 81, 18, 13),
+        math.pi,
+        math.pi,
+        false,
+        ink,
+      );
+    } else {
+      canvas.drawArc(
+        Rect.fromLTWH(74, eating ? 78 : 75, 19, eating ? 15 : 12),
+        0,
+        math.pi,
+        false,
+        ink,
+      );
+    }
+  }
+
+  void _drawTears(Canvas canvas, double phase) {
+    final tearPaint = Paint()..color = const Color(0xFF57B7FF);
+    for (var i = 0; i < 4; i += 1) {
+      final fall = ((phase + i * 0.26) % 1.0);
+      final side = i.isEven ? 66.0 : 100.0;
+      final y = 78 + fall * 38;
+      canvas.drawOval(
+        Rect.fromCenter(center: Offset(side, y), width: 7, height: 11),
+        tearPaint
+          ..color = const Color(0xFF57B7FF).withValues(alpha: 1 - fall * 0.45),
+      );
+    }
+  }
+
+  void _drawSparkle(Canvas canvas, Offset center, double phase) {
+    final paint = Paint()
+      ..color = const Color(0xFFFFD166).withValues(alpha: 0.5 + 0.4 * phase)
+      ..strokeWidth = 2
+      ..strokeCap = StrokeCap.round;
+    canvas.drawLine(center.translate(-5, 0), center.translate(5, 0), paint);
+    canvas.drawLine(center.translate(0, -5), center.translate(0, 5), paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant UnicornMascotPainter oldDelegate) =>
+      oldDelegate.mood != mood ||
+      oldDelegate.progress != progress ||
+      oldDelegate.colors != colors;
 }
 
 class UnicornThoughtBubble extends StatelessWidget {
@@ -2292,8 +2482,7 @@ class UnicornState {
         (json['fedCarrots'] as num?)?.toInt() ??
         0,
     updatedAt:
-        DateTime.tryParse(json['updatedAt'] as String? ?? '') ??
-        DateTime.now(),
+        DateTime.tryParse(json['updatedAt'] as String? ?? '') ?? DateTime.now(),
   );
 }
 
